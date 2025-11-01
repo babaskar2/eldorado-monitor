@@ -1,103 +1,107 @@
 const axios = require('axios');
-const cheerio = require('cheerio');
 
 async function getStoreStatus() {
   try {
-    // URL toko Eldorado kamu
     const storeUrl = 'https://www.eldorado.gg/users/NirQua___Store?tab=Offers&category=CustomItem';
     
-    console.log(`🔍 Mencoba scraping: ${storeUrl}`);
+    console.log(`🔍 Checking store: ${storeUrl}`);
     
     const response = await axios.get(storeUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
       timeout: 10000
     });
     
     const html = response.data;
-    const $ = cheerio.load(html);
-
-    console.log('📄 Panjang HTML:', html.length);
     
-    // Coba cari indikator status toko
-    // 1. Cari di header/profile toko
-    const profileSelectors = [
-      '.user-status',
-      '.seller-status',
-      '.status-indicator',
-      '[class*="status"]',
-      '.mode-identifier',
-      '.online-status',
-      '.offline-status'
-    ];
-
-    // 2. Cari di tab Offers
-    const offerSelectors = [
-      '.offer-status',
-      '.item-status',
-      '[class*="available"]',
-      '[class*="stock"]'
-    ];
-
-    // 3. Cari teks yang mengandung online/offline
-    const pageText = html.toLowerCase();
-    console.log('🔍 Mencari teks "online/offline" dalam halaman...');
-
-    if (pageText.includes('online')) {
-      console.log('✅ Ditemukan teks "online"');
+    // Convert ke lowercase untuk pencarian yang lebih mudah
+    const htmlLower = html.toLowerCase();
+    
+    console.log('📊 Analisis halaman:');
+    console.log('- Panjang HTML:', html.length);
+    console.log('- Status code:', response.status);
+    
+    // Cari berbagai pattern yang mungkin menunjukkan status
+    const patterns = {
+      online: [
+        'online',
+        'aktif',
+        'available',
+        'ready',
+        'live',
+        'dijual',
+        'sell',
+        'buy'
+      ],
+      offline: [
+        'offline',
+        'tidak aktif',
+        'unavailable',
+        'sold out',
+        'habis',
+        'kosong'
+      ]
+    };
+    
+    // Hitung kemunculan kata-kata
+    let onlineScore = 0;
+    let offlineScore = 0;
+    
+    patterns.online.forEach(word => {
+      const count = (htmlLower.match(new RegExp(word, 'g')) || []).length;
+      if (count > 0) {
+        console.log(`- "${word}": ${count} kali`);
+        onlineScore += count;
+      }
+    });
+    
+    patterns.offline.forEach(word => {
+      const count = (htmlLower.match(new RegExp(word, 'g')) || []).length;
+      if (count > 0) {
+        console.log(`- "${word}": ${count} kali`);
+        offlineScore += count;
+      }
+    });
+    
+    console.log(`📈 Score - Online: ${onlineScore}, Offline: ${offlineScore}`);
+    
+    // Decision logic
+    if (onlineScore > offlineScore) {
+      console.log('✅ Decision: ONLINE (lebih banyak indikator online)');
       return 'online';
-    } else if (pageText.includes('offline')) {
-      console.log('✅ Ditemukan teks "offline"');
+    } else if (offlineScore > onlineScore) {
+      console.log('✅ Decision: OFFLINE (lebih banyak indikator offline)');
       return 'offline';
-    }
-
-    // 4. Cari berdasarkan class yang umum dipakai
-    for (const selector of [...profileSelectors, ...offerSelectors]) {
-      const element = $(selector);
-      if (element.length > 0) {
-        const classes = element.attr('class') || '';
-        const text = element.text().toLowerCase();
-        
-        console.log(`🔍 Found "${selector}":`, {
-          classes: classes,
-          text: text.substring(0, 100)
-        });
-
-        if (classes.includes('online') || text.includes('online')) {
-          return 'online';
-        } else if (classes.includes('offline') || text.includes('offline')) {
-          return 'offline';
-        }
+    } else {
+      // Jika sama, cek apakah halaman berisi konten toko
+      const hasStoreContent = htmlLower.includes('nirqua') || 
+                             htmlLower.includes('store') || 
+                             htmlLower.includes('eldorado');
+      
+      if (hasStoreContent && response.status === 200) {
+        console.log('✅ Decision: ONLINE (halaman toko terload dengan baik)');
+        return 'online';
+      } else {
+        console.log('❌ Decision: Tidak bisa menentukan status');
+        return null;
       }
     }
-
-    // 5. Cek apakah ada produk/offers yang aktif
-    const offersCount = $('.offer, .item, .product, [class*="card"]').length;
-    console.log(`📦 Jumlah offers ditemukan: ${offersCount}`);
-
-    if (offersCount > 0) {
-      console.log('✅ Toko memiliki offers - diasumsikan online');
-      return 'online';
-    }
-
-    console.log('❌ Tidak bisa deteksi status toko dengan pasti');
-    return null;
-
+    
   } catch (err) {
-    console.error('❌ Gagal ambil status toko:', err.message);
+    console.error('❌ Error scraping:', err.message);
     
-    // Jika error karena timeout atau connection, asumsikan offline
-    if (err.code === 'ECONNABORTED' || err.response?.status >= 500) {
-      console.log('🌐 Connection issue - asumsikan offline');
+    // Berdasarkan error type, tentukan status
+    if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+      console.log('🌐 Connection failed - OFFLINE');
       return 'offline';
+    } else if (err.response?.status === 404) {
+      console.log('🔍 Page not found - OFFLINE');
+      return 'offline';
+    } else {
+      console.log('❌ Unknown error - return null');
+      return null;
     }
-    
-    return null;
   }
 }
 
