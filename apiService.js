@@ -1,25 +1,48 @@
-// apiService.js - REALISTIC SIMULATION
-let lastManualStatus = 'offline'; // Default offline
-let checkCount = 0;
+const axios = require('axios');
 
 async function getStoreStatus() {
   try {
-    checkCount++;
+    const storeUrl = 'https://www.eldorado.gg/users/NirQua___Store?tab=Offers&category=CustomItem';
     
-    // Simulasi realistic: 90% tetap status sama, 10% berubah (seperti toko real)
-    const shouldChange = Math.random() < 0.1; // 10% chance to change
+    console.log(`🔍 Smart status detection...`);
     
-    if (shouldChange) {
-      lastManualStatus = lastManualStatus === 'online' ? 'offline' : 'online';
-      console.log(`🔄 SIMULATION: Status changed to ${lastManualStatus.toUpperCase()}`);
-    } else {
-      console.log(`📊 SIMULATION: Status remains ${lastManualStatus.toUpperCase()} (check #${checkCount})`);
+    const response = await axios.get(storeUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      timeout: 10000
+    });
+    
+    const html = response.data;
+    
+    // CASE INSENSITIVE SEARCH (lebih aman)
+    const htmlLower = html.toLowerCase();
+    
+    // Cari berbagai variasi teks offline
+    const offlineIndicators = [
+      'shop is offline',
+      'store is offline', 
+      'offline',
+      'toko tutup',
+      'toko offline'
+    ];
+    
+    let isOffline = false;
+    
+    for (const indicator of offlineIndicators) {
+      if (htmlLower.includes(indicator)) {
+        console.log(`🔍 Found: "${indicator}"`);
+        isOffline = true;
+        break;
+      }
     }
     
-    return lastManualStatus;
+    console.log(`📊 Final decision: ${isOffline ? 'OFFLINE' : 'ONLINE'}`);
+    
+    return isOffline ? 'offline' : 'online';
     
   } catch (err) {
-    console.error('❌ Error:', err.message);
+    console.error('❌ Error - default to OFFLINE');
     return 'offline';
   }
 }
