@@ -1,15 +1,15 @@
 const axios = require('axios');
 
-async function getMyOrders() {
-  const cookie = process.env.ELDORADO_COOKIE;
-
-  const res = await axios.get('https://www.eldorado.gg/api/orders/me/seller/orders', {
-    headers: {
-      Cookie: cookie,
-    },
-  });
-
-  return res.data;
+async function getStoreStatus() {
+  try {
+    // Ganti URL ini sesuai endpoint aslimu, ini contoh dummy biar gak error
+    const res = await axios.get('https://www.eldorado.gg/api/store/status');
+    const isOnline = res.data?.online === true;
+    return isOnline ? 'online' : 'offline';
+  } catch (err) {
+    console.error("❌ Gagal ambil status toko:", err.message);
+    return null;
+  }
 }
 
-module.exports = { getMyOrders };
+module.exports = { getStoreStatus };
