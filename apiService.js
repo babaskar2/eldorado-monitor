@@ -1,77 +1,89 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
+// apiService.js - PUPPETEER
+const puppeteer = require('puppeteer');
 
 async function getStoreStatus() {
+  let browser;
   try {
-    const storeUrl = 'https://www.eldorado.gg/users/NirQua___Store?tab=Offers&category=CustomItem';
+    console.log('🚀 Launching real browser...');
     
-    console.log(`🌐 Browser-like request: ${storeUrl}`);
-    
-    const response = await axios.get(storeUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"'
-      },
-      timeout: 15000
+    browser = await puppeteer.launch({
+      headless: 'new',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu',
+        '--disable-web-security',
+        '--disable-features=site-per-process'
+      ]
     });
     
-    console.log(`📊 Response: ${response.status}`);
-    console.log(`📄 HTML length: ${response.data.length}`);
+    const page = await browser.newPage();
     
-    const $ = cheerio.load(response.data);
+    // Set realistic browser identity
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setViewport({ width: 1920, height: 1080 });
     
-    // Simpan HTML untuk debug
-    const html = response.data;
-    const htmlLower = html.toLowerCase();
+    console.log('🔍 Going to store page...');
+    await page.goto('https://www.eldorado.gg/users/NirQua___Store?tab=Offers&category=CustomItem', {
+      waitUntil: 'networkidle0',
+      timeout: 30000
+    });
     
-    console.log('=== DEBUG INFO ===');
-    console.log('Contains "offline":', htmlLower.includes('offline'));
-    console.log('Contains "online":', htmlLower.includes('online'));
-    console.log('Contains "nirqua":', htmlLower.includes('nirqua'));
+    // Tunggu untuk memastikan page fully loaded
+    await page.waitForTimeout(8000);
     
-    // Cari di SEMUA tempat termasuk comments, attributes, dll
-    if (htmlLower.includes('offline')) {
-      // Cari konteks dimana "offline" muncul
-      const offlineIndex = htmlLower.indexOf('offline');
-      const context = html.substring(Math.max(0, offlineIndex - 50), offlineIndex + 50);
-      console.log(`🎯 OFFLINE context: ...${context}...`);
-      console.log('✅ STATUS: OFFLINE');
-      return 'offline';
+    console.log('📄 Extracting page content...');
+    
+    // Screenshot untuk debug (opsional)
+    // await page.screenshot({ path: 'debug.png' });
+    
+    // Cari status dengan berbagai cara
+    const status = await page.evaluate(() => {
+      console.log('🔍 Searching for status in browser...');
+      
+      // Cara 1: Cari element status langsung
+      const statusElement = document.querySelector('span.mode-text');
+      if (statusElement) {
+        const text = statusElement.textContent?.trim().toLowerCase();
+        console.log('Found status element:', text);
+        if (text === 'offline' || text === 'online') return text;
+      }
+      
+      // Cara 2: Cari di seluruh body
+      const bodyText = document.body.textContent?.toLowerCase();
+      console.log('Body text contains offline:', bodyText?.includes('offline'));
+      console.log('Body text contains online:', bodyText?.includes('online'));
+      
+      if (bodyText?.includes('offline')) return 'offline';
+      if (bodyText?.includes('online')) return 'online';
+      
+      // Cara 3: Cari di HTML attributes
+      const html = document.documentElement.outerHTML.toLowerCase();
+      if (html.includes('offline')) return 'offline';
+      if (html.includes('online')) return 'online';
+      
+      return null;
+    });
+    
+    if (status) {
+      console.log(`✅ STATUS FOUND: ${status.toUpperCase()}`);
+      return status;
     }
     
-    if (htmlLower.includes('online')) {
-      const onlineIndex = htmlLower.indexOf('online');
-      const context = html.substring(Math.max(0, onlineIndex - 50), onlineIndex + 50);
-      console.log(`🎯 ONLINE context: ...${context}...`);
-      console.log('✅ STATUS: ONLINE');
-      return 'online';
-    }
-    
-    // Jika masih tidak ketemu, mungkin butuh approach berbeda
-    console.log('❌ Status text not found in raw HTML');
-    console.log('🔍 First 1000 chars:', html.substring(0, 1000));
-    
+    console.log('❌ Status not detected');
     return null;
     
   } catch (err) {
-    console.error('❌ Error:', err.message);
-    if (err.response) {
-      console.log('Response status:', err.response.status);
-      console.log('Response headers:', err.response.headers);
-    }
+    console.error('❌ Browser error:', err.message);
     return 'offline';
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
   }
 }
 
