@@ -1,11 +1,14 @@
 const axios = require('axios');
 
-async function getMyOrders(idToken) {
-  const res = await axios.get('https://eldorado.gg/api/orders/me', {
+async function getMyOrders() {
+  const cookie = process.env.ELDORADO_COOKIE;
+
+  const res = await axios.get('https://www.eldorado.gg/api/orders/me/seller/orders', {
     headers: {
-      Cookie: `__Host-EldoradoIdToken=${idToken}`
-    }
+      Cookie: cookie,
+    },
   });
+
   return res.data;
 }
 
