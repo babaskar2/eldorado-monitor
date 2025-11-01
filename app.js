@@ -1,8 +1,10 @@
 const cron = require('node-cron');
 const { monitor } = require('./monitorService');
-const { CHECK_INTERVAL_MINUTES } = require('./config');
 
 console.log("🚀 Eldorado Store Monitor is running...");
-monitor(); // jalan langsung pertama kali
 
-cron.schedule(`*/${CHECK_INTERVAL_MINUTES} * * * *`, monitor);
+// Jalankan langsung pertama kali
+monitor();
+
+// Jalankan tiap 10 menit
+cron.schedule('*/10 * * * *', monitor);
