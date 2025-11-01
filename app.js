@@ -1,29 +1,11 @@
-const monitorService = require('./monitorService');
-const authService = require('./authService');
+const cron = require('node-cron');
+const { monitor } = require('./monitorService');
+const { CHECK_INTERVAL_MINUTES } = require('./config');
 
-class StoreMonitorApp {
-    async start() {
-        try {
-            console.log('🚀 Starting Eldorado.gg Store Monitor...');
-            console.log('📧 Email:', process.env.ELDORADO_EMAIL ? '***' : 'MISSING');
-            console.log('⏰ Polling Interval:', process.env.POLLING_INTERVAL || 5, 'minutes');
-            
-            await authService.authenticate();
-            
-            monitorService.startMonitoring();
-            
-            setInterval(() => {
-                console.log('💓 Monitor is running...');
-            }, 60000);
-            
-            console.log('🎯 Store monitor is now active!');
-            
-        } catch (error) {
-            console.error('❌ Failed to start:', error.message);
-            process.exit(1);
-        }
-    }
-}
+console.log("🚀 Eldorado Store Monitor is running...");
 
-const app = new StoreMonitorApp();
-app.start();
+// Jalankan langsung
+monitor();
+
+// Jalankan tiap X menit
+cron.schedule(`*/${CHECK_INTERVAL_MINUTES} * * * *`, monitor);
