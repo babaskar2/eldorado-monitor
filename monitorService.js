@@ -1,28 +1,31 @@
-const axios = require('axios');
+const { getStoreStatus } = require('./apiService');
 const { sendDiscordMessage } = require('./discordService');
-const { STORE_URL } = require('./config');
+require('dotenv').config();
 
-let lastStatus = null; // buat bandingin status lama & baru
+let lastStatus = null; // simpan status terakhir di memory
 
 async function monitor() {
-  if (!STORE_URL) {
-    console.error("❌ STORE_URL belum diatur di .env");
-    return;
-  }
-
   try {
-    const { data: html } = await axios.get(STORE_URL);
-    const isOnline = html.toLowerCase().includes("online");
-    const status = isOnline ? "🟢 Online" : "🔴 Offline";
+    const currentStatus = await getStoreStatus();
 
-    if (status !== lastStatus) {
-      await sendDiscordMessage(`📦 Store status berubah: ${status}`);
-      lastStatus = status;
+    if (lastStatus === null) {
+      // Pertama kali jalan, cuma simpan aja tanpa kirim notif
+      lastStatus = currentStatus;
+      console.log(`🔍 Status awal: ${currentStatus}`);
+      return;
+    }
+
+    if (currentStatus !== lastStatus) {
+      // Status berubah => kirim notif ke Discord
+      const emoji = currentStatus === 'Online' ? '🟢' : '🔴';
+      await sendDiscordMessage(`📦 Store status berubah: ${emoji} ${currentStatus}`);
+      console.log(`✅ Status berubah dari ${lastStatus} ke ${currentStatus}`);
+      lastStatus = currentStatus; // update status terakhir
     } else {
-      console.log(`ℹ️ Status belum berubah: ${status}`);
+      console.log(`⏳ Tidak ada perubahan status (${currentStatus})`);
     }
   } catch (err) {
-    console.error("❌ Gagal cek store:", err.message);
+    console.error("❌ Error saat monitor:", err.message);
   }
 }
 
