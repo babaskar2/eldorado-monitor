@@ -1,19 +1,29 @@
-const { getMyOrders } = require('./apiService');
+const axios = require('axios');
 const { sendDiscordMessage } = require('./discordService');
-require('dotenv').config();
+const { STORE_URL } = require('./config');
+
+let lastStatus = null; // buat bandingin status lama & baru
 
 async function monitor() {
-  const { ELDORADO_API_KEY } = process.env;
-
-  if (!ELDORADO_API_KEY) {
-    return console.error("❌ API Key Eldorado tidak ditemukan di .env");
+  if (!STORE_URL) {
+    console.error("❌ STORE_URL belum diatur di .env");
+    return;
   }
 
-  const orders = await getMyOrders(ELDORADO_API_KEY);
-  if (!orders || orders.length === 0) return console.log("Tidak ada order.");
+  try {
+    const { data: html } = await axios.get(STORE_URL);
+    const isOnline = html.toLowerCase().includes("online");
+    const status = isOnline ? "🟢 Online" : "🔴 Offline";
 
-  const latest = orders[0];
-  await sendDiscordMessage(`📦 Order terbaru: ${latest.id} - Status: ${latest.status}`);
+    if (status !== lastStatus) {
+      await sendDiscordMessage(`📦 Store status berubah: ${status}`);
+      lastStatus = status;
+    } else {
+      console.log(`ℹ️ Status belum berubah: ${status}`);
+    }
+  } catch (err) {
+    console.error("❌ Gagal cek store:", err.message);
+  }
 }
 
 module.exports = { monitor };
