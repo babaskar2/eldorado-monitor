@@ -1,69 +1,18 @@
-const cron = require('node-cron');
-const apiService = require('./apiService');
-const discordService = require('./discordService');
-const config = require('./config');
+const { getIdToken } = require('./authService');
+const { getMyOrders } = require('./apiService');
+const { sendDiscordMessage } = require('./discordService');
+require('dotenv').config();
 
-class MonitorService {
-    constructor() {
-        this.lastStatus = null;
-        this.isMonitoring = false;
-    }
+async function monitor() {
+  const { ELDORADO_EMAIL, ELDORADO_PASSWORD } = process.env;
+  const idToken = await getIdToken(ELDORADO_EMAIL, ELDORADO_PASSWORD);
+  if (!idToken) return console.error("❌ Gagal login ke Eldorado");
 
-    startMonitoring() {
-        console.log('🚀 Starting store monitoring...');
-        this.isMonitoring = true;
-        
-        this.checkStoreStatus();
-        
-        cron.schedule(`*/${config.pollingInterval} * * * *`, () => {
-            if (this.isMonitoring) {
-                this.checkStoreStatus();
-            }
-        });
-        
-        console.log(`✅ Store monitoring started. Checking every ${config.pollingInterval} minutes.`);
-    }
+  const orders = await getMyOrders(idToken);
+  if (!orders || orders.length === 0) return console.log("Tidak ada order.");
 
-    stopMonitoring() {
-        this.isMonitoring = false;
-        console.log('🛑 Store monitoring stopped.');
-    }
-
-    async checkStoreStatus() {
-        try {
-            console.log('🔍 Checking store status...');
-            const status = await apiService.getStoreStatus();
-            const currentStatus = status.online ? 'online' : 'offline';
-            
-            if (this.lastStatus === null) {
-                console.log(`📊 Initial store status: ${currentStatus}`);
-            } else if (this.lastStatus !== currentStatus) {
-                console.log(`🔄 Store status changed from ${this.lastStatus} to ${currentStatus}`);
-                await this.handleStatusChange(currentStatus, status);
-            } else {
-                console.log(`📊 Store status unchanged: ${currentStatus}`);
-            }
-            
-            this.lastStatus = currentStatus;
-            
-        } catch (error) {
-            console.error('❌ Error checking store status:', error.message);
-            
-            if (this.lastStatus === 'online') {
-                await discordService.sendOfflineNotification(error.message);
-                this.lastStatus = 'offline';
-            }
-        }
-    }
-
-    async handleStatusChange(newStatus, apiResponse) {
-        if (newStatus === 'online') {
-            await discordService.sendOnlineNotification();
-        } else {
-            const errorMessage = apiResponse?.error || 'Unknown error';
-            await discordService.sendOfflineNotification(errorMessage);
-        }
-    }
+  const latest = orders[0];
+  await sendDiscordMessage(`📦 Order terbaru: ${latest.id} - Status: ${latest.status}`);
 }
 
-module.exports = new MonitorService();
+module.exports = { monitor };
