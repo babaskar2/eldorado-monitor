@@ -1,43 +1,27 @@
-// apiService.js - PUPPETEER CORE
-const puppeteer = require('puppeteer-core');
+// apiService.js - BACK TO AXIOS + SCRAPING SERVICE
+const axios = require('axios');
 
 async function getStoreStatus() {
-  let browser;
   try {
-    console.log('🚀 Launching lightweight browser...');
-    
-    browser = await puppeteer.launch({
-      executablePath: '/usr/bin/chromium', // Pakai chromium yang sudah ada
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--single-process'
-      ]
+    // Gunakan free scraping service
+    const response = await axios.get('https://api.allorigins.win/raw', {
+      params: {
+        url: 'https://www.eldorado.gg/users/NirQua___Store?tab=Offers&category=CustomItem'
+      },
+      timeout: 10000
     });
     
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    const html = response.data.toLowerCase();
+    console.log('📄 HTML length:', html.length);
     
-    console.log('🔍 Quick navigation...');
-    await page.goto('https://www.eldorado.gg/users/NirQua___Store?tab=Offers&category=CustomItem', {
-      waitUntil: 'domcontentloaded', // Lebih cepat
-      timeout: 15000
-    });
+    if (html.includes('offline')) {
+      console.log('✅ STATUS: OFFLINE');
+      return 'offline';
+    }
     
-    // Tunggu sebentar saja
-    await page.waitForTimeout(3000);
-    
-    const status = await page.evaluate(() => {
-      const element = document.querySelector('span.mode-text');
-      return element ? element.textContent.trim().toLowerCase() : null;
-    });
-    
-    if (status === 'offline' || status === 'online') {
-      console.log(`✅ STATUS: ${status.toUpperCase()}`);
-      return status;
+    if (html.includes('online')) {
+      console.log('✅ STATUS: ONLINE');
+      return 'online';
     }
     
     console.log('❌ Status not found');
@@ -46,8 +30,6 @@ async function getStoreStatus() {
   } catch (err) {
     console.error('❌ Error:', err.message);
     return 'offline';
-  } finally {
-    if (browser) await browser.close();
   }
 }
 
