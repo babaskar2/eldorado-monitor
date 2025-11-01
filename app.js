@@ -3,7 +3,7 @@ const { monitor } = require('./monitorService');
 
 console.log("🚀 Eldorado Store Monitor is running...");
 
-// Jalankan langsung
+// Jalankan pertama kali
 monitor();
 
 // Jalankan tiap 10 menit
