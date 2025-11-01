@@ -1,39 +1,49 @@
-const { Amplify, Auth } = require('aws-amplify');
-const config = require('./config');
+const { Amplify } = require('aws-amplify');
+const { Auth } = require('aws-amplify/auth');
 
 const awsConfig = {
-    aws_cognito_region: "us-east-2",
-    aws_user_pools_id: config._pool_id,
-    aws_user_pools_web_client_id: config._client_id,
-    oauth: {
-        domain: config._cognito_hostname,
-        redirectSignIn: `https://${config._eldorado_hostname}/account/auth-callback`,
-        responseType: 'code'
-    }
+  Auth: {
+    Cognito: {
+      userPoolId: 'us-east-2_MlnzCFgHk',
+      userPoolClientId: '1956req5ro9drdtbf5i6kis4la',
+      loginWith: {
+        oauth: {
+          domain: 'https://login.eldorado.gg',
+          redirectSignIn: 'https://eldorado.gg/account/auth-callback',
+          responseType: "code",
+        },
+      },
+    },
+  },
 };
 
 class AuthService {
     constructor() {
         Amplify.configure(awsConfig);
         this.token = null;
-        this.tokenExpiry = null;
     }
 
     async authenticate() {
         try {
-            console.log('🔐 Attempting authentication...');
+            console.log('🔐 Attempting authentication with Amplify v6...');
             
-            // Manual credentials for testing
-            const testEmail = process.env.ELDORADO_EMAIL || 'test@example.com';
-            const testPassword = process.env.ELDORADO_PASSWORD || 'testpassword';
+            const email = process.env.ELDORADO_EMAIL;
+            const password = process.env.ELDORADO_PASSWORD;
             
-            console.log('Using email:', testEmail ? '***' : 'MISSING');
+            if (!email || !password) {
+                throw new Error('Missing credentials in environment variables');
+            }
+
+            console.log('Using email:', email.replace(/(?<=.).(?=.*@)/g, '*'));
             
-            const user = await Auth.signIn(testEmail, testPassword);
-            this.token = user.signInUserSession.idToken.jwtToken;
-            this.tokenExpiry = new Date(user.signInUserSession.idToken.payload.exp * 1000);
-            console.log('✅ Authentication successful');
+            // PAKAI CARA RESMI DARI DOCS
+            await Auth.signIn({ username: email, password: password });
+            const session = await Auth.fetchAuthSession();
+            this.token = session.tokens.idToken.toString();
+            
+            console.log('✅ Authentication successful!');
             return this.token;
+            
         } catch (error) {
             console.error('❌ Authentication failed:', error.message);
             throw error;
@@ -41,15 +51,10 @@ class AuthService {
     }
 
     async getToken() {
-        if (!this.token || this.isTokenExpired()) {
+        if (!this.token) {
             await this.authenticate();
         }
         return this.token;
-    }
-
-    isTokenExpired() {
-        if (!this.tokenExpiry) return true;
-        return new Date() > this.tokenExpiry;
     }
 }
 
