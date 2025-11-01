@@ -5,72 +5,85 @@ async function getStoreStatus() {
   try {
     const storeUrl = 'https://www.eldorado.gg/users/NirQua___Store?tab=Offers&category=CustomItem';
     
-    console.log(`🔍 Checking: ${storeUrl}`);
+    console.log(`🔍 Deep scraping: ${storeUrl}`);
     
     const response = await axios.get(storeUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache'
       },
       timeout: 15000
     });
     
     const $ = cheerio.load(response.data);
     
-    // HAPUS semua script dan style tags (biar gak baca JavaScript)
-    $('script, style, noscript').remove();
+    console.log('=== DEEP SCRAPING ANALYSIS ===');
     
-    // Ambil SEMUA teks dari halaman
-    const allText = $('body').text();
+    // 1. Cari SEMUA element dengan class mengandung "mode"
+    const modeElements = $('[class*="mode"]');
+    console.log(`🔍 Elements with "mode" in class: ${modeElements.length}`);
     
-    // Bersihkan teks (hapus spasi berlebihan, newlines, dll)
-    const cleanText = allText.replace(/\s+/g, ' ').toLowerCase();
+    modeElements.each((i, el) => {
+      const element = $(el);
+      console.log(`   [${i}] Class: "${element.attr('class')}", Text: "${element.text().trim()}"`);
+    });
     
-    console.log('📄 Sample text dari halaman:', cleanText.substring(0, 500));
+    // 2. Cari SEMUA element dengan class mengandung "status"
+    const statusElements = $('[class*="status"]');
+    console.log(`🔍 Elements with "status" in class: ${statusElements.length}`);
     
-    // Cari kata kunci yang spesifik
-    if (cleanText.includes('offline')) {
-      console.log('✅ Ditemukan "offline" di halaman - OFFLINE');
-      return 'offline';
-    }
+    statusElements.each((i, el) => {
+      const element = $(el);
+      console.log(`   [${i}] Class: "${element.attr('class')}", Text: "${element.text().trim()}"`);
+    });
     
-    if (cleanText.includes('online')) {
-      console.log('✅ Ditemukan "online" di halaman - ONLINE');
-      return 'online';
-    }
+    // 3. Cari SEMUA span elements dan filter yang relevan
+    const allSpans = $('span');
+    console.log(`🔍 Total span elements: ${allSpans.length}`);
     
-    // Cari pattern lain
-    const patterns = {
-      offline: [
-        'store is offline',
-        'seller is offline', 
-        'toko offline',
-        'currently offline',
-        'status: offline'
-      ],
-      online: [
-        'store is online',
-        'seller is online',
-        'toko online',
-        'currently online',
-        'status: online'
-      ]
-    };
+    let relevantSpans = [];
+    allSpans.each((i, el) => {
+      const element = $(el);
+      const text = element.text().trim();
+      const classes = element.attr('class') || '';
+      
+      // Filter span yang mungkin berisi status
+      if (text.toLowerCase() === 'online' || 
+          text.toLowerCase() === 'offline' ||
+          classes.includes('mode') ||
+          classes.includes('status')) {
+        relevantSpans.push({
+          text: text,
+          class: classes,
+          html: element.toString().substring(0, 100)
+        });
+      }
+    });
     
-    for (const pattern of patterns.offline) {
-      if (cleanText.includes(pattern)) {
-        console.log(`✅ Ditemukan "${pattern}" - OFFLINE`);
+    console.log(`🔍 Relevant spans found: ${relevantSpans.length}`);
+    relevantSpans.forEach((span, i) => {
+      console.log(`   [${i}] Text: "${span.text}", Class: "${span.class}"`);
+    });
+    
+    // 4. Cari di semua attribute data-* (mungkin status disimpan di data attribute)
+    const dataElements = $('[data-*]');
+    console.log(`🔍 Elements with data attributes: ${dataElements.length}`);
+    
+    // 5. Decision berdasarkan findings
+    for (const span of relevantSpans) {
+      if (span.text.toLowerCase() === 'offline') {
+        console.log('✅ STATUS: OFFLINE (dari span text)');
         return 'offline';
       }
-    }
-    
-    for (const pattern of patterns.online) {
-      if (cleanText.includes(pattern)) {
-        console.log(`✅ Ditemukan "${pattern}" - ONLINE`);
+      if (span.text.toLowerCase() === 'online') {
+        console.log('✅ STATUS: ONLINE (dari span text)');
         return 'online';
       }
     }
     
-    console.log('❌ Tidak ditemukan indikator status yang jelas');
+    console.log('❌ Tidak ditemukan status yang jelas');
     return null;
     
   } catch (err) {
