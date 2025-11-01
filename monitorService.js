@@ -2,28 +2,23 @@ const { getStoreStatus } = require('./apiService');
 const { sendDiscordMessage } = require('./discordService');
 require('dotenv').config();
 
-let lastStatus = null; // simpan status terakhir di memory
+let lastStatus = null;
 
 async function monitor() {
   try {
-    const currentStatus = await getStoreStatus();
+    const status = await getStoreStatus();
 
-    if (lastStatus === null) {
-      // Pertama kali jalan, cuma simpan aja tanpa kirim notif
-      lastStatus = currentStatus;
-      console.log(`🔍 Status awal: ${currentStatus}`);
-      return;
-    }
+    if (!status) return console.log("⚠️ Tidak bisa ambil status toko.");
 
-    if (currentStatus !== lastStatus) {
-      // Status berubah => kirim notif ke Discord
-      const emoji = currentStatus === 'Online' ? '🟢' : '🔴';
-      await sendDiscordMessage(`📦 Store status berubah: ${emoji} ${currentStatus}`);
-      console.log(`✅ Status berubah dari ${lastStatus} ke ${currentStatus}`);
-      lastStatus = currentStatus; // update status terakhir
+    // Hanya kirim ke Discord kalau status berubah
+    if (status !== lastStatus) {
+      await sendDiscordMessage(`📦 Store status berubah: ${status === 'online' ? '🟢 Online' : '🔴 Offline'}`);
+      console.log(`📢 Notif dikirim: ${status}`);
+      lastStatus = status;
     } else {
-      console.log(`⏳ Tidak ada perubahan status (${currentStatus})`);
+      console.log(`⏳ Tidak ada perubahan. Status masih: ${status}`);
     }
+
   } catch (err) {
     console.error("❌ Error saat monitor:", err.message);
   }
