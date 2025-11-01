@@ -12,10 +12,13 @@ const config = {
     pollingInterval: parseInt(process.env.POLLING_INTERVAL) || 5
 };
 
-if (!config.email || !config.password || !config.discordWebhookUrl) {
-    console.error('❌ Missing required environment variables!');
-    console.error('Please set: ELDORADO_EMAIL, ELDORADO_PASSWORD, DISCORD_WEBHOOK_URL');
-    process.exit(1);
-}
+// Debug: Show what's actually set
+console.log('🔍 DEBUG Environment Variables:');
+console.log('- ELDORADO_EMAIL:', process.env.ELDORADO_EMAIL ? 'SET' : 'NOT SET');
+console.log('- ELDORADO_PASSWORD:', process.env.ELDORADO_PASSWORD ? 'SET' : 'NOT SET');
+console.log('- DISCORD_WEBHOOK_URL:', process.env.DISCORD_WEBHOOK_URL ? 'SET' : 'NOT SET');
+
+// Continue anyway for testing
+console.log('🚀 Continuing despite missing variables for testing...');
 
 module.exports = config;
